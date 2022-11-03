@@ -4,11 +4,17 @@ Software Renderer from scratch
 
 https://user-images.githubusercontent.com/71631675/199852800-cc3ae276-561f-4625-869e-96b804fe5779.mp4
 
-Implemented features:
-  Basic .OBJ file parser
-  Basic Rendering Pipeline and Camera Movement
-  Basic Rotation (via Matrix Manipulation)
-  W-buffering
-  Backface Culling
-  Flat Shading (Lambertian Model)
-  ...more new features to come!
+### Implemented features:
+  1) Basic .OBJ file parser
+ 
+  2) Basic Rendering Pipeline and Camera Movement
+ 
+  3)  Basic Rotation (via Matrix Manipulation)
+ 
+  4) W-buffering
+ 
+  5) Backface Culling
+ 
+  6) Flat Shading (Lambertian Model)
+ 
+ ...more new features to come!
