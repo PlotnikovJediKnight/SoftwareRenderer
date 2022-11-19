@@ -8,14 +8,17 @@
 #include "polygonedge.h"
 #include "viewportpolygonmargins.h"
 #include "lightsource.h"
+#include "shadingmodel.h"
 #include <vector>
 #include <memory>
 #include <optional>
+#include <QVector>
 #include <glm/mat4x4.hpp>
 
 namespace pv {
 
     using AnimationHolder = std::unique_ptr<Animation>;
+    using ShadingModelHolder = std::unique_ptr<ShadingModel>;
     using ViewportPoint = glm::vec4;
 
     class RenderingPipeline {
@@ -28,7 +31,9 @@ namespace pv {
         void SetFarPlaneDistance(float far);
         void SetFOVYDegreeAngle(float fovyDegrees);
         void SetModelScaleFactor(float scaleFactor);
+
         void SetAnimationType(ANIMATION_TYPE animationType);
+        void SetShadingModelType(SHADING_MODEL shadingType);
 
         void SetDrawWorldAxis(bool drawWorldAxis);
         void SetDrawPolygonMesh(bool drawPolygons);
@@ -47,9 +52,7 @@ namespace pv {
         void SetEnableZBuffering(bool enableZBuffering);
         void SetEnableBackfaceCulling(bool enableBackfaceCulling);
 
-        void SetNewLightPosition(float lightPosition);
-
-        void SetEnableLambertianModel(bool enableLambertianModel);
+        void SetLightSources(std::vector<std::shared_ptr<LightSource>> lightSources);
 
     private:
         void ApplyScaleFactor(glm::mat4& modelMatrix);
@@ -72,22 +75,19 @@ namespace pv {
         void RenderVertices(FrameBuffer& frameBuffer, const std::vector<std::optional<ViewportPoint>>& viewportPoints);
         void RenderRasterizedPolygons(FrameBuffer& frameBuffer, const std::vector<std::optional<ViewportPoint>>& viewportPoints, const SceneData&);
         void ZBufferRenderRasterizedPolygons(FrameBuffer& frameBuffer, const std::vector<std::optional<ViewportPoint>>& viewportPoints, const SceneData&);
-        std::vector<InterpolationPoint> GetTriangleInterpolationPoints(const ViewportPoint& firstPoint, const ViewportPoint& secondPoint, const ViewportPoint& thirdPoint);
 
         bool AllPolygonVerticesVisible(const std::vector<std::optional<ViewportPoint> > &viewportPoints, const std::vector<int> &vertexIndices);
         ViewportPolygonMargins GetViewportPolygonMargins(const std::vector<std::optional<ViewportPoint> > &viewportPoints, const std::vector<int> &vertexIndices);
-        ViewportPolygonMargins GetViewportTriangleMargins(const ViewportPoint& firstPoint, const ViewportPoint& secondPoint, const ViewportPoint& thirdPoint);
 
         std::vector<PolygonEdge> GetPolygonEdges(const std::vector<std::optional<ViewportPoint> > &viewportPoints, const std::vector<int> &vertexIndices);
-        std::vector<PolygonEdge> GetTriangleEdges(const ViewportPoint& firstPoint, const ViewportPoint& secondPoint, const ViewportPoint& thirdPoint);
 
         std::vector<IntersectionPoint> GetIntersectionPoints(const std::vector<PolygonEdge>& polygonEdges, float currScanlineY);
-
         void TryFixThreePointsIntersectionCase(std::vector<IntersectionPoint>&);
 
         bool PolygonIsBackFacing(const Polygon& polygon, const std::vector<glm::vec3>& vertices);
 
         void SetAnimationHolder(AnimationHolder animationHolder);
+        void SetShadingModelHolder(ShadingModelHolder shadingModelHolder);
 
         const SceneData& scene_data_;
         float fovy_;
@@ -96,6 +96,7 @@ namespace pv {
         float model_scale_factor_;
 
         AnimationHolder animation_holder_;
+        ShadingModelHolder shading_model_holder_;
         Camera camera_;
 
         bool draw_polygon_mesh_;
@@ -112,9 +113,7 @@ namespace pv {
         glm::mat4 curr_model_matrix_;
         glm::mat4 curr_view_matrix_;
 
-        LightSource light_source_;
-
-        bool lambertian_model_enabled_;
+        std::vector<std::shared_ptr<LightSource>> light_sources_;
     };
 
 } // namespace pv

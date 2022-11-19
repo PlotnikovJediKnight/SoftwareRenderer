@@ -14,14 +14,20 @@ SOURCES += \
     camera.cpp \
     display.cpp \
     framebuffer.cpp \
-    lambertianmodel.cpp \
+    lambertianshading.cpp \
     lightsource.cpp \
+    lightsourcelistmodel.cpp \
+    lightsourcelistview.cpp \
+    lightsourcewidget.cpp \
     main.cpp \
     mainwindow.cpp \
+    noshading.cpp \
     objectfileparser.cpp \
+    phongshading.cpp \
     polygonedge.cpp \
     renderingpipeline.cpp \
     scenedata.cpp \
+    shadingmodel.cpp \
     viewportpolygonmargins.cpp
 
 HEADERS += \
@@ -30,17 +36,22 @@ HEADERS += \
     camera.h \
     display.h \
     framebuffer.h \
-    lambertianmodel.h \
     lightsource.h \
+    lightsourcelistmodel.h \
+    lightsourcelistview.h \
+    lightsourcewidget.h \
     mainwindow.h \
     modelstatus.h \
     objectfileparser.h \
     polygonedge.h \
     renderingpipeline.h \
     scenedata.h \
+    shadedpixel.h \
+    shadingmodel.h \
     viewportpolygonmargins.h
 
 FORMS += \
+    lightsourcelistitem.ui \
     mainwindow.ui
 
 INCLUDEPATH += -L"$$PWD/glm"

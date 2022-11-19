@@ -7,7 +7,8 @@ LightSource::LightSource() :
     world_origin_distance_r_(50.0),
     xy_azimuth_phi_degrees_(0.0),
     z_inclination_theta_degrees_(30.0),
-    argb_light_color_({255, 253, 251, 211})
+    argb_light_color_({255, 253, 251, 211}),
+    reflectance_power_(1.0)
 {
     light_source_position_ = GetNewLightSourcePosition();
 }
@@ -21,8 +22,24 @@ glm::vec3 LightSource::GetLightSourcePositionWorld() const {
     return light_source_position_;
 }
 
+float LightSource::GetLightSourcePositionDegrees() const {
+    return xy_azimuth_phi_degrees_;
+}
+
+void LightSource::SetLightColor(std::array<uchar, 4> newColor) {
+    argb_light_color_ = newColor;
+}
+
 std::array<LightSource::uchar, 4> LightSource::GetLightColor() const {
     return argb_light_color_;
+}
+
+float LightSource::GetReflectancePower() const {
+    return reflectance_power_;
+}
+
+void LightSource::SetReflectancePower(float reflectancePower) {
+    reflectance_power_ = reflectancePower;
 }
 
 float LightSource::GetRadianAngle(float degreeAngle) const {

@@ -19,8 +19,8 @@ MainWindow::MainWindow(QWidget *parent)
     constexpr size_t width = 800;
     constexpr size_t height = 600;
 
-    display = new pv::Display(width, height, scene_data_);
-    ui_->verticalLayout->addWidget(display);
+    display_ = new pv::Display(width, height, scene_data_);
+    ui_->verticalLayout->addWidget(display_);
 
     ui_->guiPageSelection->addItem("Matrix Transforms");
     ui_->guiPageSelection->addItem("Drawing");
@@ -42,12 +42,28 @@ MainWindow::MainWindow(QWidget *parent)
                     font-weight: bold
                )";
 
+    //Light Source Custom List
+    {
+        using namespace pv;
+        light_source_list_model_holder_ =
+                std::make_unique<LightSourceListModel>(ui_->lightSourceListView);
+
+        connect(light_source_list_model_holder_.get(),
+                &LightSourceListModel::LightSourceListModelUpdated,
+                this,
+                &MainWindow::UpdatedLightSourceListModelSlot);
+
+        light_source_list_model_holder_->AppendLightSource(std::make_shared<LightSource>());
+        ui_->lightSourceListView->setModel(light_source_list_model_holder_.get());
+    }
+
     InitModelStatusData();
 }
 
 MainWindow::~MainWindow()
 {
     delete ui_;
+    delete display_;
 }
 
 void MainWindow::on_openObjFilePushButton_clicked()
@@ -65,36 +81,36 @@ void MainWindow::on_openObjFilePushButton_clicked()
 }
 
 void MainWindow::on_noAnimationRadioButton_clicked() {
-   display->DeferAnimationType(pv::ANIMATION_TYPE::NO_ANIMATION);
+   display_->DeferAnimationType(pv::ANIMATION_TYPE::NO_ANIMATION);
 }
 
 void MainWindow::on_xRotationRadioButton_clicked() {
-    display->DeferAnimationType(pv::ANIMATION_TYPE::X_ROTATION);
+    display_->DeferAnimationType(pv::ANIMATION_TYPE::X_ROTATION);
 }
 
 void MainWindow::on_yRotationRadioButton_clicked() {
-    display->DeferAnimationType(pv::ANIMATION_TYPE::Y_ROTATION);
+    display_->DeferAnimationType(pv::ANIMATION_TYPE::Y_ROTATION);
 }
 
 void MainWindow::on_zRotationRadioButton_clicked() {
-    display->DeferAnimationType(pv::ANIMATION_TYPE::Z_ROTATION);
+    display_->DeferAnimationType(pv::ANIMATION_TYPE::Z_ROTATION);
 }
 
 void MainWindow::on_carouselRadioButton_clicked() {
-    display->DeferAnimationType(pv::ANIMATION_TYPE::CAROUSEL);
+    display_->DeferAnimationType(pv::ANIMATION_TYPE::CAROUSEL);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event) {
     int keyPressed = event->key();
     switch (keyPressed){
         case  Qt::Key_X:
-        display->DeferXCameraView();
+        display_->DeferXCameraView();
             break;
         case  Qt::Key_Y:
-        display->DeferYCameraView();
+        display_->DeferYCameraView();
             break;
         case  Qt::Key_Z:
-        display->DeferZCameraView();
+        display_->DeferZCameraView();
             break;
     }
 }
@@ -102,7 +118,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
 
 void MainWindow::on_fovySlider_valueChanged(int value) {
     ui_->fovyDegreesValueLabel->setText(QString::number(value));
-    display->DeferNewFovYAngleValue(static_cast<float>(value));
+    display_->DeferNewFovYAngleValue(static_cast<float>(value));
 }
 
 
@@ -114,7 +130,7 @@ void MainWindow::on_nearPlaneDistanceSlider_valueChanged(int value) {
     }
 
     ui_->nearPlaneDistanceLabel->setText(QString::number(value));
-    display->DeferNewNearPlaneDistance(static_cast<float>(value));
+    display_->DeferNewNearPlaneDistance(static_cast<float>(value));
 }
 
 
@@ -126,20 +142,20 @@ void MainWindow::on_farPlaneDistanceSlider_valueChanged(int value) {
     }
 
     ui_->farPlaneDistanceLabel->setText(QString::number(value));
-    display->DeferNewFarPlaneDistance(static_cast<float>(value));
+    display_->DeferNewFarPlaneDistance(static_cast<float>(value));
 }
 
 
 void MainWindow::on_drawWorldAxesCheckBox_stateChanged(int stateValue) {
     switch (stateValue){
         case Qt::Unchecked:
-        display->DeferDrawWorldAxis(false);
+        display_->DeferDrawWorldAxis(false);
             break;
         case Qt::Checked:
-        display->DeferDrawWorldAxis(true);
+        display_->DeferDrawWorldAxis(true);
             break;
         default:
-        display->DeferDrawWorldAxis(false);
+        display_->DeferDrawWorldAxis(false);
     }
 }
 
@@ -147,20 +163,20 @@ void MainWindow::on_drawWorldAxesCheckBox_stateChanged(int stateValue) {
 void MainWindow::on_drawPolygonMeshCheckBox_stateChanged(int stateValue) {
     switch (stateValue){
         case Qt::Unchecked:
-        display->DeferDrawPolygonMesh(false);
+        display_->DeferDrawPolygonMesh(false);
             break;
         case Qt::Checked:
-        display->DeferDrawPolygonMesh(true);
+        display_->DeferDrawPolygonMesh(true);
             break;
         default:
-        display->DeferDrawPolygonMesh(false);
+        display_->DeferDrawPolygonMesh(false);
     }
 }
 
 
 void MainWindow::on_horizontalSlider_valueChanged(int value) {
     ui_->orbitCameraDistanceLabel->setText(QString::number(value));
-    display->DeferNewOrbitCameraDistance(static_cast<float>(value));
+    display_->DeferNewOrbitCameraDistance(static_cast<float>(value));
 }
 
 
@@ -173,7 +189,7 @@ void MainWindow::on_guiPageSelection_currentIndexChanged(int index) {
 void MainWindow::on_changePenColorButton_clicked() {
     QColor penColor = QColorDialog::getColor(Qt::white, this, "Choose Pen Color");
     if (penColor.isValid()){
-        display->DeferNewPenColor(penColor);
+        display_->DeferNewPenColor(penColor);
         UpdatePenColorLabelStyleSheet(penColor);
     }
 }
@@ -191,7 +207,7 @@ void MainWindow::UpdatePenColorLabelStyleSheet(QColor& penColor) {
 void MainWindow::on_changeBrushColorButton_clicked() {
     QColor brushColor = QColorDialog::getColor(Qt::white, this, "Choose Brush Color");
     if (brushColor.isValid()){
-        display->DeferNewBrushColor(brushColor);
+        display_->DeferNewBrushColor(brushColor);
         UpdateBrushColorLabelStyleSheet(brushColor);
     }
 }
@@ -268,17 +284,22 @@ void MainWindow::UpdateNormalStatus() {
 
     switch (normalStatus){
     case NormalStatus::NO_MODEL:{
-        DoEnableLambertianModelButton(false);
-        ui_->enableLambertianModelCheckBox->setChecked(false);
+        DoEnableLambertianRadioButton(false);
+        DoEnablePhongRadioButton(false);
+        ui_->lambertianModelRadioButton->setChecked(false);
+        ui_->phongModelRadioButton->setChecked(false);
         break;
     }
     case NormalStatus::NORMALS_PROVIDED:{
-        DoEnableLambertianModelButton(true);
+        DoEnableLambertianRadioButton(true);
+        DoEnablePhongRadioButton(true);
         break;
     }
     case NormalStatus::NO_NORMALS_PROVIDED:{
-        DoEnableLambertianModelButton(false);
-        ui_->enableLambertianModelCheckBox->setChecked(false);
+        DoEnableLambertianRadioButton(false);
+        DoEnablePhongRadioButton(false);
+        ui_->lambertianModelRadioButton->setChecked(false);
+        ui_->phongModelRadioButton->setChecked(false);
         break;
     }
     }
@@ -396,8 +417,12 @@ void MainWindow::DoEnableBackfaceCullingButton(bool enableBackfaceCullingButton)
     ui_->enableBackfaceCullingCheckBox->setEnabled(enableBackfaceCullingButton);
 }
 
-void MainWindow::DoEnableLambertianModelButton(bool enableLambertianModelButton) {
-    ui_->enableLambertianModelCheckBox->setEnabled(enableLambertianModelButton);
+void MainWindow::DoEnableLambertianRadioButton(bool enableLambertianRadioButton) {
+    ui_->lambertianModelRadioButton->setEnabled(enableLambertianRadioButton);
+}
+
+void MainWindow::DoEnablePhongRadioButton(bool enablePhongRadioButton) {
+    ui_->phongModelRadioButton->setEnabled(enablePhongRadioButton);
 }
 
 pv::MeshStatus MainWindow::GetMeshStatus() {
@@ -433,17 +458,20 @@ pv::NormalStatus MainWindow::GetNormalStatus() {
     return NormalStatus::NORMALS_PROVIDED;
 }
 
+void MainWindow::UpdatedLightSourceListModelSlot(const pv::LightSourceListModel *model) {
+    display_->DeferUpdatedLightSourceListModel(model);
+}
 
 void MainWindow::on_rasterizePolygonsCheckBox_stateChanged(int stateValue) {
     switch (stateValue){
         case Qt::Unchecked:
-        display->DeferRasterizePolygons(false);
+        display_->DeferRasterizePolygons(false);
             break;
         case Qt::Checked:
-        display->DeferRasterizePolygons(true);
+        display_->DeferRasterizePolygons(true);
             break;
         default:
-        display->DeferRasterizePolygons(false);
+        display_->DeferRasterizePolygons(false);
     }
 }
 
@@ -451,16 +479,16 @@ void MainWindow::on_rasterizePolygonsCheckBox_stateChanged(int stateValue) {
 void MainWindow::on_enableZBufferingCheckBox_stateChanged(int stateValue) {
     switch (stateValue){
         case Qt::Unchecked:{
-            display->DeferEnableZBuffering(false);
+            display_->DeferEnableZBuffering(false);
             break;
         }
         case Qt::Checked:{
-            display->DeferEnableZBuffering(true);
+            display_->DeferEnableZBuffering(true);
             break;
         }
 
         default:
-        display->DeferEnableZBuffering(false);
+        display_->DeferEnableZBuffering(false);
     }
 }
 
@@ -474,39 +502,44 @@ void MainWindow::on_modifyMeshButton_clicked() {
 void MainWindow::on_enableBackfaceCullingCheckBox_stateChanged(int stateValue) {
     switch (stateValue){
         case Qt::Unchecked:{
-            display->DeferEnableBackfaceCulling(false);
+            display_->DeferEnableBackfaceCulling(false);
             break;
         }
         case Qt::Checked:{
-            display->DeferEnableBackfaceCulling(true);
+            display_->DeferEnableBackfaceCulling(true);
             break;
         }
 
         default:
-        display->DeferEnableBackfaceCulling(false);
+        display_->DeferEnableBackfaceCulling(false);
     }
 }
 
-
-void MainWindow::on_lightPositionSlider_valueChanged(int value) {
-    ui_->lightPositionDegreesValueLabel->setText(QString::number(value));
-    display->DeferNewLightPosition(static_cast<float>(value));
+void MainWindow::on_noShadingRadioButton_clicked() {
+    display_->DeferShadingType(pv::SHADING_MODEL::NO_SHADING);
 }
 
 
-void MainWindow::on_enableLambertianModelCheckBox_stateChanged(int stateValue) {
-    switch (stateValue){
-        case Qt::Unchecked:{
-            display->DeferEnableLambertianModel(false);
-            break;
-        }
-        case Qt::Checked:{
-            display->DeferEnableLambertianModel(true);
-            break;
-        }
+void MainWindow::on_lambertianModelRadioButton_clicked() {
+    display_->DeferShadingType(pv::SHADING_MODEL::LAMBERTIAN_SHADING);
+}
 
-        default:
-        display->DeferEnableLambertianModel(false);
+
+void MainWindow::on_phongModelRadioButton_clicked() {
+    display_->DeferShadingType(pv::SHADING_MODEL::PHONG_SHADING);
+}
+
+void MainWindow::on_addLightPushButton_clicked() {
+    using namespace pv;
+    light_source_list_model_holder_->AppendLightSource(std::make_shared<LightSource>());
+}
+
+
+void MainWindow::on_removeLightPushButton_clicked() {
+    using namespace pv;
+    auto currentIndex = ui_->lightSourceListView->currentIndex();
+    if (currentIndex.isValid()){
+        light_source_list_model_holder_->RemoveLightSource(currentIndex.row());
     }
 }
 

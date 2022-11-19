@@ -9,6 +9,7 @@
 
 namespace pv {
 
+/*
 class LambertianModel
 {
 public:
@@ -29,7 +30,9 @@ private:
 
     std::array<uchar, 4> GetFinalAverageShade(const std::vector<std::array<uchar, 4>>& shades);
 };
+*/
+}
 
-} // namespace pv
+// namespace pv
 
 #endif // PV_LAMBERTIANMODEL_H

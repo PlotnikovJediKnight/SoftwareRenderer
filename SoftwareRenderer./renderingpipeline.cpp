@@ -18,6 +18,7 @@ RenderingPipeline::RenderingPipeline(const SceneData& sceneData) :
     far_ {500.0},
     model_scale_factor_{1.0},
     animation_holder_{std::make_unique<NoAnimation>()},
+    shading_model_holder_{std::make_unique<NoShading>()},
     draw_polygon_mesh_(false),
     argb_pen_color_({255, 255, 255, 0}),
     rasterize_polygons_(false),
@@ -25,7 +26,7 @@ RenderingPipeline::RenderingPipeline(const SceneData& sceneData) :
     draw_world_axes_(false),
     z_buffer_enabled_(false),
     backface_culling_enabled_(false),
-    lambertian_model_enabled_(false) { }
+    light_sources_() { }
 
 glm::mat4 RenderingPipeline::GetFrustumProjection(float aspectRatio) {
     float fovyAngleInRadians = GetRadianAngle(fovy_);
@@ -292,7 +293,6 @@ void RenderingPipeline::ZBufferRenderRasterizedPolygons(
         const SceneData& sceneData)
 {
     const std::vector<Polygon> &polygons = sceneData.polygons;
-    AttributeInterpolation attrInterpolation;
 
     for (const auto& polygon : polygons){
         const auto& vertexIndices = polygon.vertex_indices;
@@ -308,32 +308,28 @@ void RenderingPipeline::ZBufferRenderRasterizedPolygons(
             const ViewportPoint& secondPoint = viewportPoints[vertexIndices[1]].value();
             const ViewportPoint& thirdPoint = viewportPoints[vertexIndices[2]].value();
 
-            auto interpolationPoints = GetTriangleInterpolationPoints(firstPoint, secondPoint, thirdPoint);
-            attrInterpolation.InterpolateDepthOverTriangle(interpolationPoints, firstPoint, secondPoint, thirdPoint);
-            //further attribute interpolation
-            //shading
-            auto shadeColor = argb_brush_color_;
-            if (lambertian_model_enabled_){
-                LambertianModel lambertianModel;
-                auto materialColor = argb_brush_color_;
-                shadeColor = lambertianModel.GetShadeColor(polygon,
-                                                           sceneData,
-                                                           materialColor,
-                                                           light_source_,
-                                                           curr_model_matrix_,
-                                                           curr_view_matrix_);
-            }
-            //
-            for (const auto& interpolationPoint : interpolationPoints){
-                frameBuffer.ZBufferDrawPixel(interpolationPoint.x,
-                                             interpolationPoint.y,
-                                             interpolationPoint.z,
-                                             shadeColor);
+            auto materialColor = argb_brush_color_;
+            auto shadedPixels
+                    = shading_model_holder_->GetShadedPixels(firstPoint,
+                                                             secondPoint,
+                                                             thirdPoint,
+                                                             polygon,
+                                                             sceneData,
+                                                             materialColor,
+                                                             light_sources_,
+                                                             curr_model_matrix_,
+                                                             curr_view_matrix_);
+            for (const auto& shadedPixel : shadedPixels){
+                frameBuffer.ZBufferDrawPixel(shadedPixel.interpolatedPoint.x,
+                                             shadedPixel.interpolatedPoint.y,
+                                             shadedPixel.interpolatedPoint.z,
+                                             shadedPixel.shadeColor);
             }
         }
     }
 }
 
+/*
 std::vector<RenderingPipeline::InterpolationPoint>
 RenderingPipeline::GetTriangleInterpolationPoints(
         const ViewportPoint &firstPoint,
@@ -373,7 +369,7 @@ RenderingPipeline::GetTriangleInterpolationPoints(
     }
 
     return interpolationPoints;
-}
+}*/
 
 bool RenderingPipeline::AllPolygonVerticesVisible(
         const std::vector<std::optional<ViewportPoint> > &viewportPoints,
@@ -410,6 +406,7 @@ RenderingPipeline::GetViewportPolygonMargins(
     return viewportPolygonMargins;
 }
 
+/*
 ViewportPolygonMargins
 RenderingPipeline::GetViewportTriangleMargins(
         const ViewportPoint &firstPoint,
@@ -422,7 +419,7 @@ RenderingPipeline::GetViewportTriangleMargins(
                 max(firstPoint.y, max(secondPoint.y, thirdPoint.y))};
 
     return viewportTriangleMargins;
-}
+}*/
 
 std::vector<PolygonEdge> RenderingPipeline::GetPolygonEdges(
         const std::vector<std::optional<ViewportPoint> > &viewportPoints,
@@ -449,6 +446,7 @@ std::vector<PolygonEdge> RenderingPipeline::GetPolygonEdges(
     return polygonEdges;
 }
 
+/*
 std::vector<PolygonEdge>
 RenderingPipeline::GetTriangleEdges(
         const ViewportPoint &firstPoint,
@@ -468,7 +466,8 @@ RenderingPipeline::GetTriangleEdges(
                                        firstPoint.x, firstPoint.y});
 
     return polygonEdges;
-}
+}*/
+
 
 std::vector<IntersectionPoint> RenderingPipeline::GetIntersectionPoints(
         const std::vector<PolygonEdge>& polygonEdges,
@@ -489,6 +488,7 @@ std::vector<IntersectionPoint> RenderingPipeline::GetIntersectionPoints(
 
     return intersectionPoints;
 }
+
 
 void RenderingPipeline::TryFixThreePointsIntersectionCase(std::vector<IntersectionPoint> &intersectionPoints) {
     sort(intersectionPoints.begin(),
@@ -527,7 +527,8 @@ bool RenderingPipeline::PolygonIsBackFacing(
     glm::vec3 polygonNormalWorld = glm::cross(glm::vec3{vecAWorld.x, vecAWorld.y, vecAWorld.z},
                                               glm::vec3{vecBWorld.x, vecBWorld.y, vecBWorld.z});
 
-    if (glm::dot(polygonNormalWorld, camera_.GetWorldViewDirection()) < 0.0){
+    constexpr double DOT_PRODUCT_EPS = 0.0001;
+    if (glm::dot(polygonNormalWorld, camera_.GetWorldViewDirection()) < DOT_PRODUCT_EPS){
         return true;
     }
 
@@ -536,6 +537,14 @@ bool RenderingPipeline::PolygonIsBackFacing(
 
 void RenderingPipeline::SetAnimationHolder(AnimationHolder animationHolder) {
     animation_holder_ = std::move(animationHolder);
+}
+
+void RenderingPipeline::SetShadingModelHolder(ShadingModelHolder shadingModelHolder) {
+    shading_model_holder_ = std::move(shadingModelHolder);
+}
+
+void RenderingPipeline::SetLightSources(vector<shared_ptr<LightSource>> lightSources) {
+    light_sources_ = lightSources;
 }
 
 
@@ -556,9 +565,10 @@ RenderingPipeline::GetViewPortPoints
         glm::mat4 Camera = camera_.GetCameraMatrix();
         glm::mat4 View = glm::inverse(Camera);
         curr_view_matrix_ = View;
-        glm::mat4 ViewportTransform = GetViewportTransform(width, height);
 
+        glm::mat4 ViewportTransform = GetViewportTransform(width, height);
         glm::mat4 Projection = GetFrustumProjection(aspectRatio);
+
         auto MVP = Projection * View * Model;
 
         for (const auto& objectPoint : points){
@@ -672,6 +682,22 @@ void RenderingPipeline::SetAnimationType(ANIMATION_TYPE animationType) {
     }
 }
 
+void RenderingPipeline::SetShadingModelType(SHADING_MODEL shadingType) {
+    switch (shadingType){
+        case SHADING_MODEL::NO_SHADING:
+        shading_model_holder_ = make_unique<NoShading>();
+            break;
+        case SHADING_MODEL::LAMBERTIAN_SHADING:
+        shading_model_holder_ = make_unique<LambertianShading>();
+            break;
+        case SHADING_MODEL::PHONG_SHADING:
+        shading_model_holder_ = make_unique<PhongShading>();
+            break;
+        default:
+        shading_model_holder_ = make_unique<NoShading>();
+    }
+}
+
 void RenderingPipeline::SetDrawWorldAxis(bool drawWorldAxis) {
     draw_world_axes_ = drawWorldAxis;
 }
@@ -723,14 +749,6 @@ void RenderingPipeline::SetEnableZBuffering(bool enableZBuffering) {
 
 void RenderingPipeline::SetEnableBackfaceCulling(bool enableBackfaceCulling) {
     backface_culling_enabled_ = enableBackfaceCulling;
-}
-
-void RenderingPipeline::SetNewLightPosition(float lightPositionDegrees) {
-    light_source_.UpdateLightSourcePosition(lightPositionDegrees);
-}
-
-void RenderingPipeline::SetEnableLambertianModel(bool enableLambertianModel) {
-    lambertian_model_enabled_ = enableLambertianModel;
 }
 
 void RenderingPipeline::ApplyScaleFactor(glm::mat4 &modelMatrix) {

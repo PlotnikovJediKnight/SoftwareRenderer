@@ -6,6 +6,7 @@
 #include "objectfileparser.h"
 #include "scenedata.h"
 #include "modelstatus.h"
+#include "lightsourcelistmodel.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -16,6 +17,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
+    using LightSourceListModelHolder = std::unique_ptr<pv::LightSourceListModel>;
+
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
@@ -59,13 +62,19 @@ private slots:
 
     void on_enableBackfaceCullingCheckBox_stateChanged(int arg1);
 
-    void on_lightPositionSlider_valueChanged(int value);
+    void on_noShadingRadioButton_clicked();
 
-    void on_enableLambertianModelCheckBox_stateChanged(int arg1);
+    void on_lambertianModelRadioButton_clicked();
+
+    void on_phongModelRadioButton_clicked();
+
+    void on_addLightPushButton_clicked();
+
+    void on_removeLightPushButton_clicked();
 
 private:
     Ui::MainWindow *ui_;
-    pv::Display *display;
+    pv::Display *display_;
 
     pv::ObjectFileParser obj_file_parser_;
     pv::SceneData scene_data_;
@@ -109,10 +118,17 @@ private:
     void DoEnableZBufferingButton(bool enableZBufferingButton);
 
     void DoEnableBackfaceCullingButton(bool enableBackfaceCullingButton);
-    void DoEnableLambertianModelButton(bool enableLambertianModelButton);
+
+    void DoEnableLambertianRadioButton(bool enableLambertianRadioButton);
+    void DoEnablePhongRadioButton(bool enablePhongRadioButton);
 
     pv::MeshStatus GetMeshStatus();
     pv::NormalStatus GetNormalStatus();
+
+    LightSourceListModelHolder light_source_list_model_holder_;
+
+private slots:
+    void UpdatedLightSourceListModelSlot(const pv::LightSourceListModel*);
 
 protected:
     virtual void keyPressEvent(QKeyEvent *event) override;

@@ -3,8 +3,10 @@
 
 #include <QLabel>
 #include "animation.h"
+#include "shadingmodel.h"
 #include "scenedata.h"
 #include "renderingpipeline.h"
+#include "lightsourcelistmodel.h"
 
 namespace pv {
 
@@ -14,6 +16,7 @@ namespace pv {
         explicit Display(size_t width, size_t height, const SceneData& sceneData, QWidget *parent = nullptr);
 
         void DeferAnimationType(ANIMATION_TYPE animationType);
+        void DeferShadingType(SHADING_MODEL shadingType);
 
         void DeferXCameraView();
         void DeferYCameraView();
@@ -35,9 +38,8 @@ namespace pv {
         void DeferEnableZBuffering(bool enableZBuffering);
         void DeferEnableBackfaceCulling(bool enableBackfaceCulling);
 
-        void DeferNewLightPosition(float value);
+        void DeferUpdatedLightSourceListModel(const LightSourceListModel* model);
 
-        void DeferEnableLambertianModel(bool enableLambertianModel);
     signals:
 
         // QWidget interface

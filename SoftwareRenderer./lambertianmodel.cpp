@@ -4,21 +4,13 @@ using namespace std;
 
 namespace pv {
 
+/*
 std::array<LambertianModel::uchar, 4>
 operator*(const std::array<LambertianModel::uchar, 4>& color, float value){
     return {255,
             static_cast<LambertianModel::uchar>(color[1] * value),
             static_cast<LambertianModel::uchar>(color[2] * value),
             static_cast<LambertianModel::uchar>(color[3] * value)};
-}
-
-std::array<LambertianModel::uchar, 4>
-operator+(const std::array<LambertianModel::uchar, 4>& colorLhs,
-          const std::array<LambertianModel::uchar, 4>& colorRhs){
-    return {255,
-            static_cast<LambertianModel::uchar>((colorLhs[1] + colorRhs[1]) / 2),
-            static_cast<LambertianModel::uchar>((colorLhs[2] + colorRhs[2]) / 2),
-            static_cast<LambertianModel::uchar>((colorLhs[3] + colorRhs[3]) / 2)};
 }
 
 std::array<LambertianModel::uchar, 4>
@@ -126,6 +118,6 @@ LambertianModel::GetFinalAverageShade(
             static_cast<uchar>(g / 3),
             static_cast<uchar>(b / 3) };
 }
-
+*/
 
 } // namespace pv

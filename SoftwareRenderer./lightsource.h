@@ -16,7 +16,13 @@ public:
     void UpdateLightSourcePosition(float azimuthDegrees);
 
     glm::vec3 GetLightSourcePositionWorld() const;
+    float GetLightSourcePositionDegrees() const;
+
+    void SetLightColor(std::array<uchar, 4>);
     std::array<uchar, 4> GetLightColor() const;
+
+    float GetReflectancePower() const;
+    void SetReflectancePower(float reflectancePower);
 
 private:
 
@@ -28,8 +34,9 @@ private:
     float xy_azimuth_phi_degrees_;
     const float z_inclination_theta_degrees_;
 
-    const std::array<uchar, 4> argb_light_color_;
+    std::array<uchar, 4> argb_light_color_;
     glm::vec3 light_source_position_;
+    float reflectance_power_;
 };
 
 } // namespace pv

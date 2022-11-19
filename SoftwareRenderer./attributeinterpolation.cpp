@@ -1,12 +1,12 @@
 #include "attributeinterpolation.h"
+#include <stdexcept>
+using namespace std;
 
 namespace pv {
 
-void AttributeInterpolation::InterpolateDepthOverLine(
-        std::vector<InterpolationPoint> &interpolationPoints,
-        const ViewportPoint &firstPoint,
-        const ViewportPoint &secondPoint)
-{
+  void AttributeInterpolation::InterpolateDepthOverLine(
+      std::vector<InterpolationPoint> & interpolationPoints,
+      const ViewportPoint &firstPoint, const ViewportPoint &secondPoint) {
     const double inverseW1 = firstPoint.w;
     const double inverseW2 = secondPoint.w;
 
@@ -22,12 +22,21 @@ void AttributeInterpolation::InterpolateDepthOverLine(
 
 }
 
-void AttributeInterpolation::InterpolateDepthOverTriangle(
-        std::vector<InterpolationPoint> &interpolationPoints,
+std::vector<ShadedPixel> AttributeInterpolation::GetPixelsWithInterpolatedDepth(
+        const std::vector<InterpolationPoint>& interpolationPoints,
         const ViewportPoint &firstPoint,
         const ViewportPoint &secondPoint,
-        const ViewportPoint &thirdPoint)
+        const ViewportPoint &thirdPoint,
+        bool normalInterpolationNeeded,
+        std::vector<glm::vec3>* normalVectorsPtr,
+        std::vector<glm::vec3>* interpolatedNormalVectorsPtr,
+        bool cameraSpaceInterpolationNeeded,
+        std::vector<glm::vec3>* cameraSpacePosPtr,
+        std::vector<glm::vec3>* interpolatedCameraSpacePosPtr)
 {
+    vector<ShadedPixel> toReturn; toReturn.reserve(interpolationPoints.size());
+    constexpr array<uchar, 4> blackColor{255, 0, 0, 0};
+
     const double inverseW1 = firstPoint.w;
     const double inverseW2 = secondPoint.w;
     const double inverseW3 = thirdPoint.w;
@@ -43,7 +52,9 @@ void AttributeInterpolation::InterpolateDepthOverTriangle(
 
     const double triangleArea = 0.5 * abs(static_cast<double>((x2 - x0) * (y1 - y0) - (y2 - y0) * (x1 - x0)));
 
-    for (auto& interpolationPoint : interpolationPoints){
+    size_t interpPointIdx = 0;
+    for (auto& interpolationPoint : interpolationPoints) {
+        double interpolatedDepth = std::numeric_limits<double>::max();
         const double qx = interpolationPoint.x;
         const double qy = interpolationPoint.y;
 
@@ -53,9 +64,86 @@ void AttributeInterpolation::InterpolateDepthOverTriangle(
         double u = uArea / triangleArea;
         double v = vArea / triangleArea;
 
+        constexpr double RELEVANT_BARYCENTRIC_COORD = 0.0000001;
+        if (u < RELEVANT_BARYCENTRIC_COORD ||
+            v < RELEVANT_BARYCENTRIC_COORD ||
+            1.0 - u - v < RELEVANT_BARYCENTRIC_COORD){
+
+            interpolatedDepth = std::numeric_limits<double>::max();
+            toReturn.push_back(
+                        ShadedPixel {
+                                InterpolationPoint{interpolationPoint.x, interpolationPoint.y, interpolatedDepth},
+                                ShadeColor{blackColor}
+                        });
+
+            interpPointIdx++;
+            continue;
+        }
+
         double inverseDepthValue = inverseW1 * (1 - u - v) + inverseW2 * u + inverseW3 * v;
-        interpolationPoint.z = 1.0 / inverseDepthValue;
+
+        if (inverseDepthValue < 0.0){
+            interpolatedDepth = std::numeric_limits<double>::max();
+            toReturn.push_back(
+                        ShadedPixel {
+                                InterpolationPoint{interpolationPoint.x, interpolationPoint.y, interpolatedDepth},
+                                ShadeColor{blackColor}
+                        });
+        } else {
+            interpolatedDepth = 1.0 / inverseDepthValue;
+            toReturn.push_back(
+                        ShadedPixel {
+                                InterpolationPoint{interpolationPoint.x, interpolationPoint.y, interpolatedDepth},
+                                ShadeColor{blackColor}
+                        });
+        }
+
+        if (normalInterpolationNeeded) {
+            if  ( (normalVectorsPtr->size() != 3) ||
+                  (interpolatedNormalVectorsPtr->size() != interpolationPoints.size()) )
+            {
+                throw std::runtime_error("Normal Interpolation Invariant violated!");
+            }
+
+            glm::vec3 normal1 = (*normalVectorsPtr)[0];
+            glm::vec3 normal2 = (*normalVectorsPtr)[1];
+            glm::vec3 normal3 = (*normalVectorsPtr)[2];
+
+            glm::vec3 interpolatedNormal =
+                    normal1 * static_cast<float>(inverseW1) * static_cast<float>(1 - u - v) +
+                    normal2 * static_cast<float>(inverseW2) * static_cast<float>(u) +
+                    normal3 * static_cast<float>(inverseW3) * static_cast<float>(v);
+
+            interpolatedNormal *= interpolatedDepth;
+
+            (*interpolatedNormalVectorsPtr)[interpPointIdx] = interpolatedNormal;
+        }
+
+        if (cameraSpaceInterpolationNeeded) {
+            if  ( (cameraSpacePosPtr->size() != 3) ||
+                  (interpolatedCameraSpacePosPtr->size() != interpolationPoints.size()) )
+            {
+                throw std::runtime_error("Camera Space Interpolation Invariant violated!");
+            }
+
+            glm::vec3 camera1 = (*cameraSpacePosPtr)[0];
+            glm::vec3 camera2 = (*cameraSpacePosPtr)[1];
+            glm::vec3 camera3 = (*cameraSpacePosPtr)[2];
+
+            glm::vec3 interpolatedPointCamera =
+                    camera1 * static_cast<float>(inverseW1) * static_cast<float>(1 - u - v) +
+                    camera2 * static_cast<float>(inverseW2) * static_cast<float>(u) +
+                    camera3 * static_cast<float>(inverseW3) * static_cast<float>(v);
+
+            interpolatedPointCamera *= interpolatedDepth;
+
+            (*interpolatedCameraSpacePosPtr)[interpPointIdx] = interpolatedPointCamera;
+        }
+
+        interpPointIdx++;
     }
+
+    return toReturn;
 }
 
 } // namespace pv

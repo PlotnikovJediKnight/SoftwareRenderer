@@ -17,6 +17,10 @@ namespace pv {
         rend_pipeline_.SetAnimationType(animationType);
     }
 
+    void Display::DeferShadingType(SHADING_MODEL shadingType) {
+        rend_pipeline_.SetShadingModelType(shadingType);
+    }
+
     void Display::DeferXCameraView() {
         rend_pipeline_.SetXCameraView();
     }
@@ -79,12 +83,8 @@ namespace pv {
         rend_pipeline_.SetEnableBackfaceCulling(enableBackfaceCulling);
     }
 
-    void Display::DeferNewLightPosition(float lightPositionDegrees) {
-        rend_pipeline_.SetNewLightPosition(lightPositionDegrees);
-    }
-
-    void Display::DeferEnableLambertianModel(bool enableLambertianModel) {
-        rend_pipeline_.SetEnableLambertianModel(enableLambertianModel);
+    void Display::DeferUpdatedLightSourceListModel(const LightSourceListModel *model) {
+        rend_pipeline_.SetLightSources(model->GetLightSourceItems());
     }
 
     void renderedImageCleanup(void* renderedImage){
