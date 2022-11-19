@@ -2,6 +2,8 @@
 
 Software Renderer from scratch
 
+https://user-images.githubusercontent.com/71631675/202830141-326d2fb8-28e6-4a9e-b8f4-83ac7c721e3f.mp4
+
 https://user-images.githubusercontent.com/71631675/199852800-cc3ae276-561f-4625-869e-96b804fe5779.mp4
 
 ### Implemented features:
