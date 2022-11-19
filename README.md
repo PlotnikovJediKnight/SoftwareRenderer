@@ -16,5 +16,9 @@ https://user-images.githubusercontent.com/71631675/199852800-cc3ae276-561f-4625-
   5) Backface Culling
  
   6) Flat Shading (Lambertian Model)
+  
+  7) Phong Shading
+  
+  8) Multiple light source support
  
  ...more new features to come!
