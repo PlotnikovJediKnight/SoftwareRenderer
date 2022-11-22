@@ -12,6 +12,19 @@ namespace pv {
                 static_cast<uchar>(color[3] * value)};
     }
 
+    inline uchar GetByteColorComponentValue(float componentValue) {
+        if (componentValue > 1.0) {
+            componentValue = 1.0;
+        }
+
+        if (componentValue < 0.0) {
+            componentValue = 0.0;
+        }
+
+        return min(static_cast<uchar>(255),
+                   static_cast<uchar>(componentValue * 255));
+    }
+
     std::vector<ShadedPixel>
     LambertianShading::GetShadedPixels
     (
@@ -31,21 +44,22 @@ namespace pv {
                 );
 
         std::array<uchar, 4> finalShade{255, 0, 0, 0};
+        constexpr double MAX_BYTE_VALUE_COLOR = 255.0;
 
         if (lightSources.size() > 0) {
-            unsigned long long r = 0, g = 0, b = 0;
+            float r = 0, g = 0, b = 0;
 
             for (const auto& lightSource : lightSources){
                 auto iShade = GetShadeColor(polygon, sceneData, materialColor, *lightSource, model, view);
 
-                r += iShade[1];
-                g += iShade[2];
-                b += iShade[3];
+                r += iShade[1] / MAX_BYTE_VALUE_COLOR;
+                g += iShade[2] / MAX_BYTE_VALUE_COLOR;
+                b += iShade[3] / MAX_BYTE_VALUE_COLOR;
             }
 
-            r /= lightSources.size(); finalShade[1] = r;
-            g /= lightSources.size(); finalShade[2] = g;
-            b /= lightSources.size(); finalShade[3] = b;
+            finalShade[1] = GetByteColorComponentValue(r);
+            finalShade[2] = GetByteColorComponentValue(g);
+            finalShade[3] = GetByteColorComponentValue(b);
         }
 
         for_each(begin(shadedPoints), end(shadedPoints), [&finalShade](ShadedPixel& pixel) { pixel.shadeColor = finalShade; });

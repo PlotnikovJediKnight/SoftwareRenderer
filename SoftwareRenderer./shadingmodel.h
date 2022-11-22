@@ -131,6 +131,7 @@ namespace pv {
         //------
 
     private:
+
         std::vector<glm::vec3> GetPolygonVertexNormals(const std::vector<int> &normalIndices,
                                                        const std::vector<glm::vec3> &normals) const;
 
@@ -139,9 +140,9 @@ namespace pv {
                                                                const glm::mat4& model,
                                                                const glm::mat4& view) const;
 
-        std::array<uchar, 4> GetAmbientShade(std::array<uchar, 4>) const;
-        std::array<uchar, 4> GetDiffuseShade(const std::shared_ptr<LightSource>&, glm::vec3&, glm::vec3&, const glm::mat3&, const glm::mat4&) const;
-        std::array<uchar, 4> GetSpecularShade(const std::shared_ptr<LightSource>&, glm::vec3&, glm::vec3&, const glm::mat3&, const glm::mat4&) const;
+        std::array<uchar, 4> GetAmbientShade(std::array<uchar, 4>, const std::vector<std::shared_ptr<LightSource>>&) const;
+        std::array<uchar, 4> GetDiffuseShade(const std::shared_ptr<LightSource>&, glm::vec3&, glm::vec3&) const;
+        std::array<uchar, 4> GetSpecularShade(const std::shared_ptr<LightSource>&, glm::vec3&, glm::vec3&, glm::vec3&) const;
     };
 
 } // namespace pv

@@ -30,6 +30,19 @@ namespace pv {
                  {modelView[2][0], modelView[2][1], modelView[2][2]} };
     }
 
+    inline uchar GetByteColorComponentValue(float componentValue) {
+        if (componentValue > 1.0) {
+            componentValue = 1.0;
+        }
+
+        if (componentValue < 0.0) {
+            componentValue = 0.0;
+        }
+
+        return min(static_cast<uchar>(255),
+                   static_cast<uchar>(componentValue * 255));
+    }
+
     std::vector<ShadedPixel>
     PhongShading::GetShadedPixels
     (
@@ -63,41 +76,53 @@ namespace pv {
                 );
 
         if (lightSources.size() > 0) {
-
             size_t shadedPointIdx = 0;
-            auto ambientShade = GetAmbientShade(materialColor);
 
             auto ModelView = view * model;
             auto ModelViewNormal = glm::transpose(glm::inverse(GetMatrix3x3(ModelView)));
 
+            constexpr double MAX_BYTE_VALUE_COLOR = 255.0;
+
             for (auto& shadedPoint : shadedPoints) {
-                unsigned long long r = 0, g = 0, b = 0;
+                float r = 0, g = 0, b = 0;
 
                 for (const auto& lightSource : lightSources) {
-                    auto diffuseShade = GetDiffuseShade(lightSource,
-                                                        interpolatedVertexNormals[shadedPointIdx],
-                                                        interpolatedCameraSpacePos[shadedPointIdx],
-                                                        ModelViewNormal, view);
+                    auto &interpPointView = interpolatedCameraSpacePos[shadedPointIdx];
+                    auto &normal = interpolatedVertexNormals[shadedPointIdx];
+                    auto lightSourcePositionView = view * glm::vec4(lightSource->GetLightSourcePositionWorld(), 1.0);
 
-                    auto specularShade = GetSpecularShade(lightSource,
-                                                          interpolatedVertexNormals[shadedPointIdx],
-                                                          interpolatedCameraSpacePos[shadedPointIdx],
-                                                          ModelViewNormal, view);
+                    glm::vec3 lightDirectionView = lightSourcePositionView - glm::vec4(interpPointView, 1.0);
+                    glm::vec3 surfaceNormalView = ModelViewNormal * normal;
 
-                    r += diffuseShade[1] + specularShade[1];
-                    g += diffuseShade[2] + specularShade[2];
-                    b += diffuseShade[3] + specularShade[3];
+                    lightDirectionView = glm::normalize(lightDirectionView);
+                    surfaceNormalView = glm::normalize(surfaceNormalView);
+
+                    glm::vec3 viewDirection = -glm::normalize(interpPointView);
+
+                    auto diffuseShade = GetDiffuseShade(lightSource, lightDirectionView, surfaceNormalView);
+                    {
+                        r += diffuseShade[1] / MAX_BYTE_VALUE_COLOR;
+                        g += diffuseShade[2] / MAX_BYTE_VALUE_COLOR;
+                        b += diffuseShade[3] / MAX_BYTE_VALUE_COLOR;
+                    }
+
+                    auto specularShade = GetSpecularShade(lightSource, lightDirectionView, surfaceNormalView, viewDirection);
+                    {
+                        r += specularShade[1] / MAX_BYTE_VALUE_COLOR;
+                        g += specularShade[2] / MAX_BYTE_VALUE_COLOR;
+                        b += specularShade[3] / MAX_BYTE_VALUE_COLOR;
+                    }
                 }
 
-                r += ambientShade[1];
-                g += ambientShade[2];
-                b += ambientShade[3];
+                array<uchar, 4> finalShade;
+                auto ambientShade = GetAmbientShade(materialColor, lightSources);
+                {
+                    r += ambientShade[1] / MAX_BYTE_VALUE_COLOR;
+                    g += ambientShade[2] / MAX_BYTE_VALUE_COLOR;
+                    b += ambientShade[3] / MAX_BYTE_VALUE_COLOR;
+                }
 
-                r /= lightSources.size() * 2 + 1;
-                g /= lightSources.size() * 2 + 1;
-                b /= lightSources.size() * 2 + 1;
-
-                array<uchar, 4> finalShade = {255, static_cast<uchar>(r), static_cast<uchar>(g), static_cast<uchar>(b)};
+                finalShade = {255, GetByteColorComponentValue(r), GetByteColorComponentValue(g), GetByteColorComponentValue(b) };
                 shadedPoint.shadeColor = finalShade;
 
                 shadedPointIdx++;
@@ -156,9 +181,10 @@ namespace pv {
     std::array<uchar, 4>
     PhongShading::GetAmbientShade
     (
-            std::array<uchar, 4> materialColor
+            std::array<uchar, 4> materialColor,
+             const std::vector<std::shared_ptr<LightSource>>& lightSources
      ) const {
-        constexpr double AMBIENT_LIGHT_COEFF = 0.35;
+        constexpr double AMBIENT_LIGHT_COEFF = 0.22;
         return materialColor * AMBIENT_LIGHT_COEFF;
     }
 
@@ -166,21 +192,11 @@ namespace pv {
     PhongShading::GetDiffuseShade
     (
             const std::shared_ptr<LightSource>& lightSource,
-            glm::vec3& normal,
-            glm::vec3& interpPointView,
-            const glm::mat3& modelViewNormal,
-            const glm::mat4& view
+            glm::vec3& lightDirectionView,
+            glm::vec3& surfaceNormalView
     ) const {
 
-        auto lightSourcePositionView = view * glm::vec4(lightSource->GetLightSourcePositionWorld(), 1.0);
-
-        glm::vec3 lightDirectionView = lightSourcePositionView - glm::vec4(interpPointView, 1.0);
-        glm::vec3 surfaceNormalView = modelViewNormal * normal;
-
-        lightDirectionView = glm::normalize(lightDirectionView);
-        surfaceNormalView = glm::normalize(surfaceNormalView);
-
-        constexpr double DIFFUSE_LIGHT_COEFF = 0.95;
+        constexpr double DIFFUSE_LIGHT_COEFF = 0.35;
 
         auto diffuseShade =
                 lightSource->GetLightColor() * DIFFUSE_LIGHT_COEFF *
@@ -195,25 +211,14 @@ namespace pv {
     PhongShading::GetSpecularShade
     (
             const std::shared_ptr<LightSource>& lightSource,
-            glm::vec3& normal,
-            glm::vec3& interpPointView,
-            const glm::mat3& modelViewNormal,
-            const glm::mat4& view
+            glm::vec3& lightDirectionView,
+            glm::vec3& surfaceNormalView,
+            glm::vec3& viewDirection
     )
     const {
 
-        auto lightSourcePositionView = view * glm::vec4(lightSource->GetLightSourcePositionWorld(), 1.0);
-
-        glm::vec3 lightDirectionView = lightSourcePositionView - glm::vec4(interpPointView, 1.0);
-        glm::vec3 surfaceNormalView = modelViewNormal * normal;
-
-        lightDirectionView = glm::normalize(lightDirectionView);
-        surfaceNormalView = glm::normalize(surfaceNormalView);
-
         float dotProductLN = glm::dot(lightDirectionView, surfaceNormalView);
-
         glm::vec3 reflectanceDirectionView = 2 * dotProductLN * surfaceNormalView - lightDirectionView;
-        glm::vec3 viewDirection = -glm::normalize(interpPointView);
 
         float saturatedDotProductRV = glm::clamp(glm::dot(reflectanceDirectionView, viewDirection),
                                                  static_cast<float>(0.0),
@@ -221,10 +226,8 @@ namespace pv {
 
         constexpr double SPECULAR_LIGHT_COEFF = 1.00;
 
-        array<uchar, 4> whiteSpecular = {255, 255, 255, 255};
-
         auto specularShade =
-                whiteSpecular * SPECULAR_LIGHT_COEFF *
+                lightSource->GetLightColor()  * SPECULAR_LIGHT_COEFF *
                 pow(saturatedDotProductRV, lightSource->GetReflectancePower());
 
         return specularShade;
